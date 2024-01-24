@@ -1,17 +1,18 @@
 import React, { Component, createRef } from 'react'
 import styles from './MessageField.module.css'
 import { SVGUpload } from './../SVGHandler'
-import { UploadElement } from './../'
+import { UploadElement, ReplyBar } from './../'
 const { ipcRenderer } = window.require('electron')
 
 class MessageField extends Component {
 	constructor(props) {
 		super(props)
 
-		this.state = {
+		this.initialState = {
 			value: '',
 			files: [],
 		}
+		this.state = { ...this.initialState }
 
 		this.inputRef = createRef()
 		this.uploadRef = createRef()
@@ -31,6 +32,7 @@ class MessageField extends Component {
 		this.handleSubmit = event => {
 			event.preventDefault()
 			const { value, files } = this.state
+			const { replyingTo, handleReply } = this.props
 			if (!value && !files.length) return
 			const attachments = files.map(({ path, filename, spoiler }) => {
 				return {
@@ -41,10 +43,12 @@ class MessageField extends Component {
 			let messageOptions = {}
 			if (value) messageOptions.content = value
 			if (attachments.length) messageOptions.files = attachments
+			if (replyingTo) messageOptions.reply = { messageReference: replyingTo.id }
 			ipcRenderer.send('messageCreate', messageOptions)
-			this.setState({ value: '', files: [] })
+			handleReply()
 			this.updateField()
 			this.focusInput()
+			this.setState({ ...this.initialState })
 		}
 
 		this.handleUpload = ({ target }) => {
@@ -95,45 +99,48 @@ class MessageField extends Component {
 		}
 	}
 
+	componentDidUpdate(prevProps) {
+		this.focusInput()
+		if (prevProps.channel.id !== this.props.channel.id) {
+			this.setState({ ...this.initialState })
+			this.updateField()
+		}
+	}
+
 	render() {
-		const { currentChannel } = this.props
+		const { channel, replyingTo, handleReply } = this.props
 		const { files } = this.state
 		return (
-			<form
-				action="#"
-				className={styles.form}
-				onSubmit={this.handleSubmit}
-			>
+			<form action="#" className={styles.form} onSubmit={this.handleSubmit}>
 				<div className={styles.channelTextArea}>
-					<div className={styles.container}>
+					{replyingTo ? (
+						<ReplyBar handleReply={handleReply} replyingTo={replyingTo} />
+					) : null}
+					<div
+						className={`${styles.container} ${
+							replyingTo ? styles.editedBorders : ''
+						}`}
+					>
 						{files.length ? (
 							<>
 								<ul className={styles.channelAttachmentArea}>
-									{files.map(
-										(
-											{ filename, src, mime, spoiler },
-											key
-										) => (
-											<UploadElement
-												key={key}
-												index={key}
-												filename={filename}
-												src={src}
-												mime={mime}
-												spoiler={spoiler}
-												toggleSpoiler={
-													this.toggleSpoiler
-												}
-												removeAttachment={
-													this.removeAttachment
-												}
-											/>
-										)
-									)}
+									{files.map(({ filename, src, mime, spoiler }, key) => (
+										<UploadElement
+											key={key}
+											index={key}
+											filename={filename}
+											src={src}
+											mime={mime}
+											spoiler={spoiler}
+											toggleSpoiler={this.toggleSpoiler}
+											removeAttachment={this.removeAttachment}
+										/>
+									))}
 								</ul>
 								<div className="divider"></div>
 							</>
 						) : null}
+
 						<div className={styles.inner}>
 							<div className={styles.uploadInput}>
 								<input
@@ -161,7 +168,7 @@ class MessageField extends Component {
 							<div className={styles.textArea}>
 								<input
 									className={styles.textAreaSlate}
-									placeholder={`Message in #${currentChannel.name}`}
+									placeholder={`Message in #${channel.name}`}
 									onInput={({ target }) => {
 										this.setState({ value: target.value })
 									}}

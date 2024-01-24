@@ -1,37 +1,7 @@
-import React, { Component, useState } from 'react'
+import React, { Component } from 'react'
+import { GuildListItem } from '..'
 import styles from './GuildNav.module.css'
 const { ipcRenderer } = window.require('electron')
-
-function ListItem(props) {
-	const [hover, updateHover] = useState(false)
-	return (
-		<div className={styles.listItem}>
-			<div className={styles.pill}>
-				<span
-					className={
-						props.selected
-							? styles.selected
-							: hover
-							? styles.hover
-							: ''
-					}
-				></span>
-			</div>
-			<img
-				src={props.guild.iconURL}
-				alt={props.guild.name}
-				className={`${styles.icon} ${
-					props.selected ? styles.iconSelected : ''
-				}`}
-				onClick={() => {
-					props.selectGuild(props.guild.id)
-				}}
-				onMouseEnter={() => updateHover(true)}
-				onMouseLeave={() => updateHover(false)}
-			/>
-		</div>
-	)
-}
 
 class GuildNav extends Component {
 	constructor(props) {
@@ -48,18 +18,49 @@ class GuildNav extends Component {
 
 	render() {
 		const { guilds } = this.state
-		const { currentGuild, selectGuild } = this.props
+		const {
+			currentGuild,
+			selectGuild,
+			openHome,
+			isHomeOpen,
+			createTooltip,
+			destroyTooltip,
+			createContextMenu,
+			destroyContextMenu,
+		} = this.props
 		return (
-			<div className={styles.guildNav}>
-				{guilds.map((guild, index) => (
-					<ListItem
-						key={index}
-						guild={guild}
-						selected={guild.id === currentGuild?.id}
-						selectGuild={selectGuild}
-					/>
-				))}
-			</div>
+			<nav className={styles.guildNav}>
+				<ul className={styles.tree}>
+					<div className={styles.scroller}>
+						<GuildListItem
+							home
+							openHome={openHome}
+							selected={isHomeOpen}
+							createTooltip={createTooltip}
+							destroyTooltip={destroyTooltip}
+							createContextMenu={createContextMenu}
+							destroyContextMenu={destroyContextMenu}
+						/>
+						<div className={styles.guildSeparatorWrapper}>
+							<div className={styles.guildSeperator}></div>
+						</div>
+						<div aria-label="Servers">
+							{guilds.map((guild, key) => (
+								<GuildListItem
+									key={key}
+									guild={guild}
+									selected={guild.id === currentGuild?.id}
+									selectGuild={selectGuild}
+									createTooltip={createTooltip}
+									destroyTooltip={destroyTooltip}
+									createContextMenu={createContextMenu}
+									destroyContextMenu={destroyContextMenu}
+								/>
+							))}
+						</div>
+					</div>
+				</ul>
+			</nav>
 		)
 	}
 }

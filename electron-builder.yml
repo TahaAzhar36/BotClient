@@ -1,0 +1,15 @@
+artifactName: ${productName}-${os}-${arch}.${ext}
+win:
+  target: nsis
+linux:
+  target: AppImage
+  synopsis: Login as a discord bot!
+  category: Chat
+mac:
+  target: dmg
+  category: public.app-category.social-networking
+files: ['build/*']
+directories:
+  buildResources: 'build'
+extraMetadata:
+  main: 'build/electron.js'

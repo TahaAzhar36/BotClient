@@ -1,58 +1,49 @@
 .guildNav {
-	height: 100%;
-	width: var(--guild-nav-width);
-	background-color: var(--background-tertiary);
+	position: relative;
+	width: 72px;
 	flex-shrink: 0;
-	display: flex;
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-box-direction: normal;
 	flex-direction: column;
+	background-color: var(--background-tertiary);
 }
 
-.listItem {
-	display: block;
-	width: 100%;
-	height: 50px;
-	user-select: none;
+.tree {
 	display: flex;
-	margin-top: 10px;
-}
-
-.pill {
-	width: 4px;
 	height: 100%;
-	display: flex;
-	align-items: center;
 }
 
-.pill span {
-	height: 0;
+.scroller {
+	overflow: hidden scroll;
+	padding-right: 0px;
+	user-select: none;
+	padding: 12px 0 0;
+	background-color: var(--background-tertiary);
+	contain: layout size;
+	position: relative;
+	box-sizing: border-box;
+	min-height: 0;
+	-webkit-box-flex: 1;
+	flex: 1 1 auto;
+}
+
+.scroller::-webkit-scrollbar {
 	width: 0;
-	border-radius: 0 4px 4px 0;
-	transition: 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 }
 
-.hover {
-	height: 20px !important;
-	width: 100% !important;
-	background-color: white;
+.guildSeparatorWrapper {
+	position: relative;
+	margin: 0 0 8px;
+	display: flex;
+	-webkit-box-pack: center;
+	justify-content: center;
+	width: 72px;
 }
 
-.selected {
-	height: 40px !important;
-	width: 100% !important;
-	background-color: white;
-}
-
-.icon {
-	margin-left: 7px;
-	border-radius: 100%;
-	transition: 0.3s;
-	cursor: pointer;
-	height: 50px;
-	width: 50px;
-	transition: 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-}
-
-.icon:hover,
-.iconSelected {
-	border-radius: 40%;
+.guildSeperator {
+	height: 2px;
+	width: 32px;
+	border-radius: 1px;
+	background-color: var(--background-modifier-accent);
 }

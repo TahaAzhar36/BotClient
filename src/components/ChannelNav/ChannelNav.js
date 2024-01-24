@@ -1,42 +1,9 @@
 import React, { Component } from 'react'
 import styles from './ChannelNav.module.css'
-import { SVGCogsThick, SVGChannels, SVGLogout } from './../SVGHandler'
+import { ChannelListItem } from '..'
 import { parseTwemojis } from '../../utils'
+import { ChannelType } from 'discord-api-types/v10'
 const { ipcRenderer } = window.require('electron')
-
-function ListItem(props) {
-	const isPrivate = props.channel.isPrivate
-	const isRules = props.channel.isRules
-	const isCategory = props.channel.type === 'GUILD_CATEGORY'
-	const isParentCollapsed = props.collpasedCategoriesId.includes(
-		props.channel.parentId
-	)
-	const isCollapsed = props.collpasedCategoriesId.includes(props.channel.id)
-	const isViewable = props.channel.viewable
-	const svgType = isRules
-		? 'RULES'
-		: `${props.channel.type}${isPrivate && !isCategory ? '_LIMITED' : ''}`
-	return (
-		<div
-			className={`${styles.listItem} ${
-				isCategory ? styles.category : ''
-			} ${isCollapsed ? styles.collapsed : ''} ${
-				isParentCollapsed ? styles.hidden : ''
-			} ${!isViewable ? styles.muted : ''} ${
-				props.selected ? styles.selected : ''
-			}`}
-			title={!isViewable ? 'Not Viewable' : ''}
-			onClick={() => {
-				isCategory
-					? props.toggleCollapseCategory(props.channel.id)
-					: props.selectChannel(props.channel.id)
-			}}
-		>
-			{SVGChannels[svgType]}
-			<div>{parseTwemojis(props.channel.name)}</div>
-		</div>
-	)
-}
 
 class ChannelNav extends Component {
 	constructor(props) {
@@ -72,81 +39,54 @@ class ChannelNav extends Component {
 	}
 
 	render() {
-		const { currentGuild, currentChannel, pushAlert } = this.props
+		const { currentGuild, currentChannel } = this.props
 		const channels = orderChannels(this.state.channels)
 		return (
-			<div className={styles.channelNav}>
-				<div className={styles.header}>
-					<span>{currentGuild.name}</span>
+			<nav className={styles.channelNav}>
+				<div className={styles.headerContainer}>
+					<header className={styles.header}>
+						<h1 className={styles.name}>{parseTwemojis(currentGuild.name)}</h1>
+					</header>
 				</div>
 
 				<div className={styles.channels}>
-					{channels
-						? channels.map((channel, index) => (
-								<ListItem
+					{channels && (
+						<>
+							{channels.at(0)?.type !== ChannelType.GuildCategory ? (
+								<div style={{ height: 16 }}></div>
+							) : null}
+							{channels.map((channel, index) => (
+								<ChannelListItem
 									key={index}
 									channel={channel}
-									toggleCollapseCategory={
-										this.toggleCollapseCategory
-									}
-									collpasedCategoriesId={
-										this.state.collpasedCategoriesId
-									}
+									toggleCollapseCategory={this.toggleCollapseCategory}
+									collpasedCategoriesId={this.state.collpasedCategoriesId}
 									selected={channel.id === currentChannel.id}
 									selectChannel={this.props.selectChannel}
 								/>
-						  ))
-						: null}
+							))}
+						</>
+					)}
+					<div style={{ height: 16 }}></div>
 				</div>
-
-				<div className={styles.userInfo}>
-					<img
-						src={this.props.clientUser.added.displayAvatarURL}
-						alt="Bot Avatar"
-						className={styles.avatar}
-					/>
-					<div className={styles.tagWrapper}>
-						<span className={styles.username}>
-							{this.props.clientUser.username}
-						</span>
-						<span className={styles.discriminator}>
-							#{this.props.clientUser.discriminator}
-						</span>
-					</div>
-					<button
-						className={styles.logout}
-						onClick={() => {
-							ipcRenderer.send('logout')
-						}}
-					>
-						<SVGLogout />
-					</button>
-					<button
-						className={styles.settings}
-						onClick={() => {
-							pushAlert({
-								type: 'system',
-								message: 'Feature in development, coming soon.',
-							})
-						}}
-					>
-						<SVGCogsThick />
-					</button>
-				</div>
-			</div>
+			</nav>
 		)
 	}
 }
 
 function orderChannels(channels) {
 	const categories = channels
-		.filter(channel => channel.type === 'GUILD_CATEGORY')
+		.filter(channel => channel.type === ChannelType.GuildCategory)
 		.sort((a, b) => a.position - b.position)
 	const texts = channels
-		.filter(channel => ['GUILD_TEXT', 'GUILD_NEWS'].includes(channel.type))
+		.filter(channel =>
+			[ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(
+				channel.type
+			)
+		)
 		.sort((a, b) => a.position - b.position)
 	const voices = channels
-		.filter(channel => channel.type === 'GUILD_VOICE')
+		.filter(channel => channel.type === ChannelType.GuildVoice)
 		.sort((a, b) => a.position - b.position)
 	const result = [
 		...texts.filter(channel => !channel.parentId),

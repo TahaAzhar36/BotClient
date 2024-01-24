@@ -1,8 +1,16 @@
 import React, { Component } from 'react'
-import { Login, Layout, AlertManager } from './..'
+import {
+	Login,
+	Layout,
+	AlertManager,
+	TooltipManager,
+	ContextMenuManager,
+	ErrorBoundary,
+} from '..'
+import { AppData } from './../../services/'
 import Markdown from 'markdown-to-jsx'
 import styles from './App.module.css'
-import bootloopvideo from './../../assets/images/bootloop.webm'
+import bootloop from './../../assets/images/bootloop.gif'
 const { ipcRenderer } = window.require('electron')
 
 class App extends Component {
@@ -10,15 +18,34 @@ class App extends Component {
 		super(props)
 
 		this.state = {
-			token: ipcRenderer.sendSync('get', 'token'),
+			token: AppData.get('token'),
 			clientUser: null,
 			clientIsReady: false,
 			alerts: [],
+			tooltip: null,
+			contextMenu: null,
 		}
 
 		this.handleLogin = token => {
 			ipcRenderer.send('login', token)
 		}
+
+		/* NOTE: This part will be redone using wrapper logic to ease with the unnecessary propagations. */
+
+		// rawTooltip: {content: string, position: 'top'|'right'|'bottom'|'left', ref: ReactRef, listItem: ?boolean}
+		this.createTooltip = rawTooltip =>
+			this.setState({ ...this.state, tooltip: rawTooltip })
+
+		this.destroyTooltip = () => this.setState({ ...this.state, tooltip: null })
+
+		// rawContextMenuItem: {type: 'separator'}|({content: string, icons?: JSX.Element[], color: 'normal'|'danger'|'system', className?: string, onClick?: () => void} & ({type: 'button'}|{type: 'submenu', submenu: rawContextSubmenu}))
+		// rawContextSubmenu: {items: rawContextMenuItem[]}
+		// rawContextMenu: rawContextSubmenu & {position: ('top'|'right'|'bottom'|'left')|{top?: number, left?: number, bottom?: number, right?: number}, ref: ReactRef}
+		this.createContextMenu = rawContextMenu =>
+			this.setState({ ...this.state, contextMenu: rawContextMenu })
+
+		this.destroyContextMenu = () =>
+			this.setState({ ...this.state, contextMenu: null })
 
 		/**
 		 * Push an alert.
@@ -33,6 +60,15 @@ class App extends Component {
 	}
 
 	componentDidMount() {
+		// Window EventListeners
+		window.addEventListener(
+			'keyup',
+			event => {
+				if (event.code === 'KeyR' && event.ctrlKey) window.location.reload()
+			},
+			true
+		)
+
 		// Handle all errors from discord client
 		ipcRenderer.on('error', (event, error) => {
 			this.pushAlert({
@@ -85,42 +121,50 @@ class App extends Component {
 	}
 
 	render() {
-		const { token, clientIsReady, clientUser } = this.state
+		const { token, clientIsReady, clientUser, tooltip, contextMenu } =
+			this.state
 		return (
-			<>
+			<ErrorBoundary>
 				{token ? (
 					clientIsReady ? (
-						<Layout
-							clientUser={clientUser}
-							pushAlert={this.pushAlert}
-						/>
+						<div className={styles.appMount}>
+							<div className={styles.app}>
+								<div className={styles.appInner}>
+									<div className={styles.layers}>
+										<div className={styles.layer}>
+											<div className={styles.container}>
+												<Layout
+													clientUser={clientUser}
+													pushAlert={this.pushAlert}
+													createTooltip={this.createTooltip}
+													destroyTooltip={this.destroyTooltip}
+													createContextMenu={this.createContextMenu}
+													destroyContextMenu={this.destroyContextMenu}
+												/>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<ContextMenuManager
+								menu={contextMenu}
+								createContextMenu={this.createContextMenu}
+								destroyContextMenu={this.destroyContextMenu}
+							/>
+							<TooltipManager tooltip={tooltip} />
+						</div>
 					) : (
-						<BootLoop />
+						<div className={styles.bootloopWrapper}>
+							<img src={bootloop} alt="" className={styles.bootloopMedia} />
+							<p className={styles.bootloopCaption}>Loading BotClient</p>
+						</div>
 					)
 				) : (
-					<Login
-						handleLogin={this.handleLogin}
-						pushAlert={this.pushAlert}
-					/>
+					<Login handleLogin={this.handleLogin} pushAlert={this.pushAlert} />
 				)}
 				<AlertManager alerts={this.state.alerts} />
-			</>
+			</ErrorBoundary>
 		)
 	}
 }
-
-function BootLoop() {
-	return (
-		<div className={styles.wrapper}>
-			<video
-				src={bootloopvideo}
-				className={styles.video}
-				autoPlay={true}
-				loop={true}
-			></video>
-			<p className={styles.caption}>Loading BotClient...</p>
-		</div>
-	)
-}
-
 export default App

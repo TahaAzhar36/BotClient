@@ -1,11 +1,30 @@
 /* eslint-disable no-unused-vars */
 const path = require('path')
-const Client = require('./structures/Client')
-const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron')
+const Client = require('./structures/Client/Client')
+const {
+	serializeMessage,
+	serializeGuild,
+	serializeGuildChannel,
+	serializeGuildMember,
+} = require('./serializers')
+const { app, BrowserWindow, shell, ipcMain } = require('electron')
+const log = require('electron-log')
+const { autoUpdater } = require('electron-updater')
 const isDev = require('electron-is-dev')
-const { Guild, BaseGuildTextChannel } = require('discord.js')
+const {
+	Guild,
+	BaseGuildTextChannel,
+	DMChannel,
+	ChannelType,
+} = require('discord.js')
 const Store = require('electron-store')
 const appData = new Store()
+
+//-----------------------------------------------------
+// LOGGING
+autoUpdater.logger = log
+autoUpdater.logger.transports.file.level = 'info'
+log.info('App starting...')
 
 /**
  * @type {BrowserWindow}
@@ -20,7 +39,7 @@ function createMainWindow() {
 	mainWindow = new BrowserWindow({
 		width: 800,
 		height: 600,
-		icon: path.join(__dirname, 'logo.png'),
+		icon: path.join(__dirname, 'icon.png'),
 		webPreferences: {
 			nodeIntegration: true,
 			contextIsolation: false,
@@ -36,6 +55,14 @@ function createMainWindow() {
 	mainWindow.setMenu(null)
 
 	mainWindow.webContents.on('will-navigate', (event, url) => {
+		if (
+			url ===
+			(isDev
+				? 'http://localhost:3000/'
+				: `file://${path.join(__dirname, '../build/index.html')}`)
+		)
+			return
+		console.log(url)
 		event.preventDefault()
 		shell.openExternal(url)
 	})
@@ -44,12 +71,20 @@ function createMainWindow() {
 		mainWindow = null
 	})
 
-	if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' })
+	if (isDev) {
+		const devTools = new BrowserWindow()
+		mainWindow.webContents.setDevToolsWebContents(devTools.webContents)
+		mainWindow.webContents.openDevTools({ mode: 'detach' })
+	}
 }
 
 app.on('ready', () => {
 	// Startup code if any goes here...
-	console.log(process.version)
+
+	log.info(`Node version: ${process.version}`)
+
+	// This will be replaced with events in future
+	autoUpdater.checkForUpdatesAndNotify()
 	createMainWindow()
 })
 
@@ -68,36 +103,27 @@ let currentChannel
  * @type {Guild}
  */
 let currentGuild
+/**
+ * @type {DMChannel}
+ */
+let currentDM
 // ^^ These will make things easier than sending channel and guild data for every invocations
 
 ipcMain.on('login', async (event, token) => {
+	// Early return if no token was provided
+	if (!token) return
 	if (client) {
 		// Prevents client from getting duplicated
 		client.destroy()
 		client = null
 	}
-	client = new Client(
-		{
-			intents: [
-				'GUILDS',
-				'DIRECT_MESSAGES',
-				'GUILD_MESSAGES',
-				'GUILD_MEMBERS',
-				'GUILD_PRESENCES',
-				'GUILD_EMOJIS_AND_STICKERS',
-			],
-		},
-		mainWindow
-	)
+	client = new Client({ mainWindow: mainWindow })
 	try {
 		await client.login(token)
-		appData.set('token', token)
+		if (appData.get('Storage.saveToken', true)) appData.set('token', token)
 		event.reply('login', token)
-		client.once('ready', () => {
-			event.reply('ready', client.clientUserData)
-		})
 	} catch (error) {
-		console.log(error)
+		log.error(error)
 		event.reply('error', `[${error.code}] ${error.message}`)
 		if (appData.has('token')) {
 			event.reply('forcedAppStateUpdate', { token: '' })
@@ -114,150 +140,230 @@ ipcMain.on('logout', event => {
 })
 
 ipcMain.handle('guilds', () => {
-	const guilds = [...client.guilds.cache.values()].map(guild => {
-		return {
-			...guild,
-			iconURL: guild.iconURL(),
-		}
-	})
+	const guilds = [...client.guilds.cache.values()].map(guild =>
+		serializeGuild(guild)
+	)
 	return guilds
 })
 
 ipcMain.handle('channels', () => {
-	const channels = [...currentGuild.channels.cache.values()].map(channel => {
-		return {
-			...channel,
-			viewable: channel.viewable,
-			position: channel.position,
-			isPrivate: !channel
-				.permissionsFor(channel.guild.roles.everyone)
-				.has('VIEW_CHANNEL'),
-			isRules: channel.id === channel.guild.rulesChannelID,
-		}
-	})
+	const channels = [...currentGuild.channels.cache.values()].map(channel =>
+		serializeGuildChannel(channel)
+	)
 	return channels
 })
 
-ipcMain.handle('messages', async (event, limit) => {
-	const promises = (
-		await currentChannel.messages.fetch({
-			limit: limit,
-		})
-	).map(async message => {
-		let repliesTo
-		if (message.type === 'REPLY') repliesTo = await message.fetchReference()
-		return {
-			...message,
-			author: {
-				...message.author,
-				avatarURL: message.author.displayAvatarURL(),
-				isVerifiedBot: message.author.flags?.has('VERIFIED_BOT'),
-			},
-			member: !message.member
-				? null
-				: {
-						...message.member,
-						color: message.member.displayColor,
-						displayName: message.member.displayName,
-				  },
-			stickers: [...message.stickers.values()],
-			repliesTo:
-				message.type === 'REPLY'
-					? {
-							...repliesTo.toJSON(),
-							author: {
-								...repliesTo.author,
-								avatarURL: repliesTo.author.displayAvatarURL(),
-								isVerifiedBot:
-									repliesTo.author.flags?.has('VERIFIED_BOT'),
-							},
-							member: !repliesTo.member
-								? null
-								: {
-										...repliesTo.member,
-										color: repliesTo.member.displayColor,
-										displayName:
-											repliesTo.member.displayName,
-								  },
-					  }
-					: null,
-		}
-	})
+ipcMain.handle('dms', () => {
+	try {
+		const dms = [
+			...client.channels.cache
+				.filter(channel => channel.type === ChannelType.DM)
+				.map(each => {
+					return {
+						...each,
+						recipient: {
+							...each.recipient,
+							avatarURL: each.recipient.displayAvatarURL(),
+						},
+					}
+				}),
+		]
+		return dms
+	} catch (error) {
+		return false
+	}
+})
+
+ipcMain.handle('messages', async (event, fetchOptions) => {
+	const channel = currentChannel || currentDM
+	const promises = (await channel.messages.fetch(fetchOptions)).map(
+		async message => serializeMessage(message)
+	)
 
 	const messages = []
 	for (const promise of promises) messages.push(await promise)
-	return messages
+
+	const hasReachedTop =
+		messages.length < fetchOptions.limit ||
+		!(
+			await channel.messages.fetch({
+				limit: 1,
+				before: messages[messages.length - 1].id,
+			})
+		).size
+
+	return { messages: messages, hasReachedTop: hasReachedTop }
 })
 
 ipcMain.handle('members', async () => {
-	const members = [...currentChannel.members.values()].map(member => {
-		return {
-			...member,
-			displayName: member.displayName,
-			presence: member.presence,
-			color: member.displayColor,
-			isHoisted: member.roles.hoist ? true : false,
-			isVerifiedBot: member.user.flags?.has('VERIFIED_BOT'),
-			roles: {
-				...member.roles,
-				hoist: {
-					...member.roles.hoist,
-					position: member.roles.hoist?.position,
-				},
-			},
-			avatarURL: member.user.displayAvatarURL(),
-		}
-	})
+	const members = [...currentChannel.members.values()].map(member =>
+		serializeGuildMember(member)
+	)
 	return members
 })
 
-ipcMain.handle(
-	'selectGuild',
-	async (event, id = client.guilds.cache.first().id) => {
-		try {
-			currentGuild = await client.guilds.fetch(id)
-			currentChannel = currentGuild.channels.cache.find(
-				channel => channel.type === 'GUILD_TEXT' && channel.viewable
-			)
-			return {
-				currentGuild: currentGuild,
-				currentChannel: currentChannel,
-			}
-		} catch (error) {
-			console.log(error)
-			mainWindow.webContents.send(
-				'error',
-				`Requested guild [ID:${id}] could not be fetched.\n ${error.message}`
-			)
+ipcMain.handle('selectGuild', async (event, id) => {
+	try {
+		currentGuild = await client.guilds.fetch(id)
+		currentChannel = currentGuild.channels.cache.find(
+			channel => channel.type === ChannelType.GuildText && channel.viewable
+		)
+		currentDM = null
+		return {
+			currentGuild: serializeGuild(currentGuild),
+			currentChannel: serializeGuildChannel(currentChannel),
 		}
+	} catch (error) {
+		log.error(error)
+		mainWindow.webContents.send(
+			'error',
+			`Requested guild [ID:${id}] could not be fetched.\n ${error.message}`
+		)
 	}
-)
+})
 
 ipcMain.handle('selectChannel', async (event, id) => {
 	try {
-		currentChannel = await client.channels.fetch(id)
+		const newChannel = await client.channels.fetch(id)
+
+		const allowedChannelTypes = [
+			ChannelType.GuildText,
+			ChannelType.GuildAnnouncement,
+			ChannelType.DM,
+		]
+		if (!allowedChannelTypes.includes(newChannel.type))
+			throw new Error(
+				`Channel ${newChannel.name} [ID:${newChannel.id}] has an unsupported type: '${newChannel.type}'`
+			)
+		if (!newChannel.viewable)
+			throw new Error(
+				`Channel ${newChannel.name} [ID:${newChannel.id}] is not viewable (missing permissions).`
+			)
+
+		currentChannel = newChannel
+		currentDM = null
+		return serializeGuildChannel(currentChannel)
+	} catch (error) {
+		log.error(error)
+		mainWindow.webContents.send('error', error.message)
+	}
+})
+
+ipcMain.handle('selectDM', async (event, userID) => {
+	try {
+		const recipient = await client.users.fetch(userID)
+		currentDM = await recipient.createDM()
+		currentGuild = null
+		currentChannel = null
+		mainWindow.webContents.send('DMCreate')
 		return {
-			...currentChannel,
-			viewable: currentChannel.viewable,
+			...currentDM,
+			recipient: {
+				...currentDM.recipient,
+				avatarURL: currentDM.recipient.displayAvatarURL(),
+			},
 		}
 	} catch (error) {
-		console.log(error)
+		log.error(error)
 		mainWindow.webContents.send(
 			'error',
-			`Requested channel [ID:${id}] could not be fetched.\n ${error}`
+			`Requested DM [userID:${userID}] could not be opened.\n ${error}`
 		)
 	}
 })
 
 ipcMain.on('messageCreate', async (event, messageOptions) => {
 	try {
-		await currentChannel.send(messageOptions)
+		if (currentChannel) await currentChannel.send(messageOptions)
+		else if (currentDM) await currentDM.send(messageOptions)
+		else
+			throw new Error({
+				code: 'NO_SELECTED_CHANNEL',
+				message: 'Select a DM or GUILD_TEXT channel first',
+			})
 	} catch (error) {
-		console.log(error)
+		log.error(error)
 		event.reply('error', `[${error.code}] ${error.message}`)
 	}
 })
 
-ipcMain.on('get', (event, key) => {
-	event.returnValue = appData.get(key)
+ipcMain.on('messageDelete', async (event, messageId) => {
+	try {
+		if (currentChannel) await currentChannel.messages.delete(messageId)
+		else if (currentDM) await currentDM.messages.delete(messageId)
+		else
+			throw new Error({
+				code: 'NO_SELECTED_CHANNEL',
+				message: 'Select a DM or GUILD_TEXT channel first',
+			})
+	} catch (error) {
+		log.error(error)
+		event.reply('error', `[${error.code}] ${error.message}`)
+	}
+})
+
+ipcMain.on('AppData', (event, method, arg) => {
+	switch (method) {
+		case 'set':
+			appData.set(arg[0], arg[1])
+			break
+		case 'get':
+			event.returnValue = appData.get(arg[0], arg[1])
+			break
+		case 'has':
+			event.returnValue = appData.has(arg)
+			break
+		case 'delete':
+			appData.delete(arg)
+			break
+		default:
+	}
+})
+
+// Specially added for saving current token
+// Since it should not leak from App state
+ipcMain.on('saveCurrentToken', () => {
+	appData.set('token', client.token)
+})
+
+ipcMain.handle('fetchUser', async (event, id) => {
+	try {
+		const user = await client.users.fetch(id)
+		return {
+			...user,
+			isClientUser: user.id === client.user.id,
+			avatarURL: user.displayAvatarURL(),
+		}
+	} catch (error) {
+		return false
+	}
+})
+
+ipcMain.handle('mention', async (event, id, type, message) => {
+	try {
+		let fetched
+		switch (type) {
+			case 'channel':
+				fetched = await client.channels.fetch(id)
+				break
+
+			case 'role':
+				fetched = await client.guilds.cache.get(message.guildId).roles.fetch(id)
+				break
+
+			case 'memberOrUser':
+				fetched = message.guildId
+					? serializeGuildMember(
+							await client.guilds.cache.get(message.guildId).members.fetch(id)
+						) || (await client.users.fetch(id))
+					: await client.users.fetch(id)
+				break
+
+			default:
+				fetched = null
+		}
+		return fetched
+	} catch (error) {
+		return null
+	}
 })

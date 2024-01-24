@@ -1,0 +1,247 @@
+.chat {
+	min-width: 0;
+	min-height: 0;
+	display: flex;
+	-webkit-box-orient: vertical;
+	-webkit-box-direction: normal;
+	flex-direction: column;
+	position: relative;
+	overflow: hidden;
+	background: var(--background-primary);
+	-webkit-box-flex: 1;
+	flex: 1 1 auto;
+}
+
+.titleContainer {
+	background: var(--background-primary);
+	position: relative;
+	display: flex;
+	-webkit-box-align: center;
+	align-items: center;
+	min-width: 0;
+	width: 100%;
+	-webkit-box-flex: 0;
+	flex: 0 0 auto;
+	height: 48px;
+	padding: 0 8px;
+	font-size: 16px;
+	line-height: 20px;
+	cursor: default;
+	z-index: 2;
+	color: var(--text-normal);
+	box-shadow: var(--elevation-low);
+}
+
+.children {
+	position: relative;
+	-webkit-box-flex: 1;
+	flex: 1 1 auto;
+	display: flex;
+	-webkit-box-align: center;
+	align-items: center;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.iconWrapper {
+	position: relative;
+	height: 24px;
+	width: auto;
+	-webkit-box-flex: 0;
+	flex: 0 0 auto;
+	margin: 0 8px;
+}
+
+.iconWrapper svg {
+	display: block;
+	width: 24px;
+	height: 24px;
+	color: var(--text-muted);
+}
+
+.title {
+	-webkit-box-pack: start;
+	justify-content: flex-start;
+	margin: 0 8px 0 0;
+	flex: 0 0 auto;
+	min-width: auto;
+	overflow: hidden;
+	white-space: nowrap;
+	-webkit-box-flex: 0;
+	display: flex;
+	-webkit-box-align: center;
+	align-items: center;
+	font-weight: 600;
+	font-family: var(--font-display);
+	color: var(--header-primary);
+	font-size: 16px;
+	line-height: 20px;
+}
+
+.divider {
+	width: 1px;
+	height: 24px;
+	margin: 0 8px;
+	-webkit-box-flex: 0;
+	flex: 0 0 auto;
+	background: var(--background-modifier-accent);
+}
+
+.topic {
+	-webkit-box-flex: 1;
+	flex: 1 1 auto;
+	min-width: 0;
+	margin: 0 0 0 8px;
+	font-weight: 500;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	overflow: hidden;
+	font-size: 14px;
+	line-height: 18px;
+	color: var(--header-secondary);
+}
+
+.topic span img {
+	height: 1.375em;
+	width: 1.375em;
+	vertical-align: bottom;
+	object-fit: contain;
+}
+
+.toolbar {
+	-webkit-box-flex: 0;
+	display: flex;
+	-webkit-box-align: center;
+	align-items: center;
+	flex: 0 0 auto;
+	min-width: 0;
+}
+
+.icon {
+	-webkit-box-align: center;
+	align-items: center;
+	display: flex;
+	cursor: pointer;
+}
+
+.icon svg path {
+	fill: var(--interactive-normal);
+}
+
+.icon:hover svg path {
+	fill: var(--interactive-hover);
+}
+
+.content {
+	min-width: 0;
+	min-height: 0;
+	-webkit-box-flex: 1;
+	flex: 1 1 auto;
+	display: flex;
+	-webkit-box-orient: horizontal;
+	-webkit-box-direction: normal;
+	flex-direction: row;
+	justify-content: stretch;
+	-webkit-box-align: stretch;
+	align-items: stretch;
+	position: relative;
+}
+
+.chatContent {
+	position: relative;
+	display: flex;
+	-webkit-box-orient: vertical;
+	-webkit-box-direction: normal;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	-webkit-box-flex: 1;
+	flex: 1 1 auto;
+}
+
+.discordMessages {
+	border: none;
+	width: 100%;
+	flex-grow: 1;
+	overflow-y: scroll;
+	background-color: inherit;
+	display: flex;
+	flex-direction: column-reverse;
+}
+
+.discordMessages::-webkit-scrollbar {
+	width: 6px;
+	height: 100%;
+	background-color: var(--scrollbar-auto-scrollbar-color-track);
+}
+
+.discordMessages::-webkit-scrollbar-thumb {
+	border-radius: 6px;
+	background-color: var(--scrollbar-auto-scrollbar-color-thumb);
+}
+
+.channelStartContainer {
+	display: flex;
+	-webkit-box-orient: vertical;
+	-webkit-box-direction: normal;
+	flex-direction: column;
+	-webkit-box-flex: 0;
+	-webkit-box-pack: end;
+	justify-content: flex-end;
+	margin: 16px;
+	user-select: none;
+}
+
+.channelStartIcon {
+	width: 68px;
+	height: 68px;
+	margin-top: 16px;
+	border-radius: 50%;
+	background-color: var(--background-accent);
+}
+
+.channelStartIcon svg {
+	width: 44px;
+	height: 44px;
+	position: relative;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+}
+
+.channelStartIcon svg path {
+	fill: #fff;
+}
+
+.channelStartHeader {
+	font-weight: 700;
+	margin: 8px 0;
+	font-family: var(--font-display);
+	color: var(--header-primary);
+	font-size: 32px;
+	line-height: 40px;
+}
+
+.channelStartDescription {
+	color: var(--header-secondary);
+	font-size: 16px;
+	line-height: 20px;
+}
+
+.separator {
+	margin-top: 0.5rem;
+	margin-bottom: 0.5rem;
+	height: 0;
+	border-top: thin solid var(--background-modifier-accent);
+	display: flex;
+	-webkit-box-align: center;
+	align-items: center;
+	-webkit-box-pack: center;
+	justify-content: center;
+	-webkit-box-flex: 0;
+	pointer-events: none;
+	box-sizing: border-box;
+	--divider-color: hsl(359, calc(var(--saturation-factor, 1) * 82.6%), 59.4%);
+	margin-left: 1rem;
+	margin-right: 0.875rem;
+}

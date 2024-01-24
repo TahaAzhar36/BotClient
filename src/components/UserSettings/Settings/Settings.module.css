@@ -1,0 +1,12 @@
+.title {
+	margin-bottom: 8px;
+	color: var(--header-secondary);
+	font-size: 12px;
+	line-height: 16px;
+	font-weight: 600;
+	text-transform: uppercase;
+	-webkit-box-flex: 1;
+	flex: 1;
+	cursor: default;
+	font-family: var(--font-display);
+}

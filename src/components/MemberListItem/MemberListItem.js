@@ -1,12 +1,19 @@
 import React from 'react'
 import styles from './MemberListItem.module.css'
-import { decimalToHexColor, parseTwemojis } from './../../utils'
-import { BotTag } from '..'
+import { parseTwemojis } from './../../utils'
+import { BotTag, StatusIndicator } from '..'
 
 const MemberListItem = props => {
 	const { member } = props
-	const { color, avatarURL, displayName, presence, isVerifiedBot, user } =
-		member
+	const {
+		color,
+		hexColor,
+		avatarURL,
+		displayName,
+		presence,
+		isVerifiedBot,
+		user,
+	} = member
 	let subText = ''
 	if (presence?.activities?.length) {
 		const activity = presence.activities[0]
@@ -51,25 +58,29 @@ const MemberListItem = props => {
 				break
 		}
 	}
+
 	return (
 		<>
-			<div
-				className={`${styles.container} ${
-					!presence ? styles.offline : ''
-				}`}
-			>
-				<img
-					src={avatarURL}
-					className={styles.avatar}
-					alt={`${displayName}'s avatar`}
-				/>
+			<div className={`${styles.container} ${!presence ? styles.offline : ''}`}>
+				<div className={styles.avatarWrapper}>
+					<img
+						src={avatarURL}
+						className={styles.avatar}
+						alt={`${displayName}'s avatar`}
+					/>
+					{presence && (
+						<div className={styles.statusWrapper}>
+							<StatusIndicator type={presence.status.toUpperCase()} />
+						</div>
+					)}
+				</div>
 				<div className={styles.content}>
 					<div className={styles.nameAndDecorators}>
 						<div className={styles.name}>
 							<span
 								className={styles.roleColor}
 								style={{
-									color: decimalToHexColor(color),
+									color: color ? hexColor : '',
 								}}
 							>
 								{member.displayName}
